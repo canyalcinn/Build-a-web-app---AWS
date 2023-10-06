@@ -1,0 +1,174 @@
+#######VPC#######
+
+Create a Virtual Private Cloud (VPC, 3 Public Subnet)
+
+####### S3 Buckets #######
+
+This is where we will store images uploaded by our application. The first bucket will store the images and the second bucket will store small-sized copies of the image created by our Lambda function
+
+Creating 2 different S3 buckets
+	- Go to the S3 service and create a bucket named "yourprojectname" and create a folder named "images" inside it.
+	- Create another bucket named "yourprojectname - resized"
+	- In the "Configure options" section, uncheck all 4 ticks under the "Manage public access control lists (ACLs) for this bucket" and "Manage public 	  bucket policies for this bucket" options
+	- Create and define the Bucket Policy so that all objects transferred to the S3 bucket will have public access.
+	- Go to CORS settings and set it to allow GET PUT POST methods from * origin
+
+####### IAM Roles #######
+
+Creating 2 IAM roles that we will need
+
+	- The name of the first role will be "Lambda-S3", select "Lambda" as the service and select "AWSLambdaExecute" as the Policy
+	- The second one will be assigned to Ec2 machines and will also allow us to read and write files from S3.
+
+####### AWS Lambda #######
+
+Creating a Lambda Function that will reduce the image in the first S3 bucket to 100x100 size and copy it to the second S3 bucket
+
+	- Go to lambda service and create a new function. Runtime will be Node.js 8.10. Select Lambda-S3 as the role and create. 
+	- On the Code Entry Type section, select Upload a zip file and select the ImageResize.zip file (index.js, node_modules, package-lock.json are in 	  this zip file) and Save.
+	- Then select S3 from the Trigger section, select the "yourprojectname" bucket and select All Object Create Events. Save All
+	- As the final step, under Basic Settings, set the timeout value to 10 seconds and Save.
+	** Upload a jpg file to the "yourprojectname" bucket. If a small version has been created in "yourprojectname - resized" bucket, you have 	  	   successfully created the Lambda function **
+
+####### Security Group #######
+
+Creating the Security Group that we will need
+
+	- Create a Security Group named "Project-SecGroup". 
+	- 0.0.0.0 -- allow http 80 and ssh 22 ports 
+
+####### EC2 Instance #######
+
+Creating an EC2 Instance that we will use as a template and then we will use it to create an AMI (to create another instances)
+
+	- Create a new Ec2 instance. T2 micro. Create with Amazon Linux 2 Ami. Place it in one of the public subnets, 
+	- Assign the Ec2-S3 role and assign "Project-SecGroup" as the security group
+	- Install httpd mysql php7.2 packages. Set it to start automatically every time when the machine is started.
+	- Restart httpd service
+	- Go to /var/www/html folder and create a file named test.php and save the following command in the file:
+			
+			<?php
+ 			phpinfo();
+			?>
+	** To test it: Go to http://yourec2_ip_address/test.php ==> If the page is opened, you have succesfully installed PHP.**
+
+####### EFS #######
+
+In order to keep all files in a common place, create an EFS File System and set the Security Group settings to establish a connection between EC2 and EFS
+
+	- Go to the EFS service and start creating a new file system. Select the correct VPC as VPC. Select all public subnets as subnet. Select Default 	  Security group as Security Group. The created EFS File System will have a name like fs-6971afa1, note this name.
+	- Go to Securtiy Group on the Ec2 screen. Find the default security group of this vpc from here. Add a new rule to the Inbound rules section. 	  	  NFS TCP 2049 port will be selected.
+	- On the Source section, select Custom and then select "Project-SecGroup" from the list (EC2 instances which Project-Secgroup is assigned will be 	  able to access EFS File System)
+
+
+
+####### Mounting EFS to EC2 #######
+
+	- Go to EC2. Install amazon-efs-utils package by using yum package manager. 
+	- Go to /var/www folder
+	- Mount the EFS File system that you created in the html folder which is in /var/www folder (In this way, all files in the html folder will actually 	  be in the EFS File System. You can learn the relevant command from the EFS service screen).
+	- Go to root and then enter the /etc folder. In this folder there is a file called as "fstab". Edit this file with a text editor and enter the 	 	  following in the first line (But first, replace the efs file system name at the beginning with your own efs file system name. In this way, the 	  machine will automatically perform the mounting process every time it restarts)
+	
+	  "yourefsname":/ /var/www/html efs defaults,_netdev 0 0
+
+	- Go back to /var/wwww/html and create a new folder named as "images" with mkdir images command
+	- Then, grant the necessary rights for our PHP application to save files with the chmod 777 images command
+
+####### RDS ########
+
+	- Go to the RDS service and create a new database. Select MySql as engine. Continue with Dev/Test - MySQL and select t2.micro as the instance 	  	  class
+	- Check the Create replica in different zone option (so that it is installed as failover). Continue using the information below:
+	  
+	  instance identifier: projedbinstance
+	  master username: projemaster
+	  password: master1234
+
+	- Select VPC and check "NO" on public access. Select "Create new VPC security group" option, this will create a new Security Group.
+	- Database name: change it to "project" and leave the other settings as they are. The database will be created.
+	- Then wait for the database to be created and note the URL you will connect to (URL should be like projectdbinstance.cqub0g199gzf.eu-	  	 	  west-1.rds.amazonaws.com)
+
+	- Go to the Security Group section under the EC2 service and find the Security Group which is just created for RDS.
+	- Add inbound role. On Mysql 3306 port, select Custom on the source section and select "Project-SecGroup" from the list (Thus, EC2 virtual machines 	  will be able to access our RDS database).
+	- Go back to your EC2. Now it's time to connect to the RDS database using the mysql command on this machine and create a new table there:
+	  
+	  On EC2 shell use the following command:
+	  mysql -h projedbinstance.cqub0g199gzf.eu-west-1.rds.amazonaws.com -P 3306 -u projemaster -p (replace RDS url with your RDS' url)
+	  Password: master1234
+	  And booom, you just connected to your RDS
+
+	- Here, switch to the project database: (use this command to switch): USE project;
+	- CREATE TABLE visitors (name VARCHAR(30), email VARCHAR(30), phone VARCHAR(30), photo VARCHAR(30));
+	  (Enter this command and create a table named as "visitors").
+	- Check that the table has been created by using this command: show Tables;
+	- End your mysql connection with the exit command and go back to the EC2 shell.
+
+####### Creating the Application #######
+
+	- Go back to the computer. Go to the Project/Php Application folder and open the add.php file with a text editor..
+	  
+	  $servername = "projedbinstance.cqub0g199gzf.eu-west-1.rds.amazonaws.com";
+	  (Replace the RDS address above with your database's address and then save).
+
+	- Go back to the Project/Php Application folder and open "view.php" file with a text editor
+
+	  $servername = "projedbinstance.cqub0g199gzf.eu-west-1.rds.amazonaws.com";
+	  (Replace the RDS address above with your database's address and then save).
+
+	  Echo "<img src=https://s3-eu-west-1.amazonaws.com/yourprojectname-resized/resized-images/"
+	  (Replace the S3 address above with your S3 address and then save)
+
+	  *** At this point a new script will be created. This script will copy all images uploaded from the images folder to our S3 bucket. In this way, 	      the Lambda function will be triggered and a small copy of this image will be created.***
+
+	- Create a file called s3.sh in the same folder and modify the following and paste it into the file and save it.
+	
+	  #!/bin/bash
+	  aws s3 sync /var/www/html/images s3://yourprojectname/images
+
+####### Crontab #######
+
+Making this script run every 2 minutes with crontab
+
+	- sudo crontab -e (this command is used to go to crontab)
+	- Open edit mode by pressing "i" key and use this command:  */2 * * * * /var/www/html/s3.sh (Then exit with :x command)
+	- Next step is to check whether our application is working or not. Open a browser and go to http://ipaddress_of_yourEC2/. A form page will appear. 	  Here, enter your name, email, phone number and select an image with .jpg extension and press the "ADD" button
+	- If you see the message "The record was created successfully, the file was successfully uploaded to the server and the other records were 	  	  successfully entered into the database", congratulations, you did! Wait for 2 minutes for the image to synchronize and then press  	  	  	 "View records button." If you can see the record you entered and the picture there, the process is completed.
+
+####### Creating AMIs #######
+
+It's time to create AMIs from the EC2 instance.
+
+	- Stop EC2 template machine - (watch out: not terminate it). And then go to Volumes under EBS and take a Snapshot of the main disk connected to this 	  machine
+	- Go to the Snapshots screen under EBS and create an AMI from the Snapshot you just created.
+	- Name it as "ProjectAMI", select hardware-assisted virtualization as Virtualization Type, leave the remaining options as default.
+
+####### Load Balancers #######
+
+Creating a Load Balancers to distribute the traffic.
+
+	- Go to Target Group under Load Balancing and create a Target Group. Select VPC and type /index.html as Path. Other settings will remain as default.
+	- Go to Load Balancer under Load Balancing and create a new Application Load Balancer.  It will be Internet facing and public subnets in your VPC 	  will be selected. Select "Project-SecGroup" as the security group. Select and create the target group (select target group which was created 	  	  before). Since there is no machine at this stage, no targets will be resigtered. It is normal.
+
+####### Autoscaling #######
+
+New machines will be created with the created AMI. Autoscaling will be used for this.
+
+	- Under AutoScaling, go to Launch Configuration and create a new Launch Config
+	- Select ProjectAMI as the AMI, select T2 Micro, and select Ec2-S3 as the Role. Select Project-SecGroup as Security Group
+	- Under AutoScaling, switch to AutoScaling Groups and create a new AutoScaling Group. Select the Launch Config you just created as the Launch 	  	  Configuration. Instance size will be 3 instances, select VPC and add all public subnets as subnets.
+	- On Advanced Details, select "Receive traffic from one or more load balancers" option, and then select the Target Group which is previously created 	  from the Target Group section at the bottom. Go to the next screen and select "Use scaling policies to adjust the capacity of this group" to 	  	  increase between 3 and 5 instances. Use "90" for "Average CPU Utilization" section. Go back to EC2 Dashboard and see that 3 machines have been 	  created
+	- Wait for about 5 minutes and then go to Target Groups under Load Balancing and select your Target Group. Then go to the Targets tab and see if the 	  created Ec2 machines are healthy
+	- Under Load Balancing, go to Load Balancer and copy the dns address of the Load Balancer you created. Open a browser on your own machine and check 	  that your web application is working by entering this address
+
+####### CloudFront #######
+
+Creating a CloudFront distribution so that the application can be accessed quickly from anywhere in the world (global presence, low latency)
+
+	- Go to Cloudfront and create a web distribution. Select your LoadBalancer address as "Origin Domain Name". Enter www.yourdnsaddress.com as 	  	  Alternate Domain Names.
+	- Select "EU US and Canada" as Price Class. Leave the remaining settings as default and create your CloudFront distribution. Wait 10 minutes for the 	  next step
+
+####### Route 53 #######
+
+Creating a www record to access the application by using Route53 service
+
+	- Switch to Route53 service. Find your Hosted Zone. Create a new A record. Name can be "www" and select Alias ​​yes and select your CloudFront 	 	  distribution address as "Alias ​​Target"
+	- Test if your web application is working at www.yourdnsaddress.com on the browser
