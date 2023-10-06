@@ -3,7 +3,7 @@ https://www.udemy.com/share/101Jp83@_dmQvnRXF9dlkK09-1R1CcDahpn3pvDZDXsATaQ_BAbj
 
 Capstone project was really complex and it was giving the full picture of how to use different services effectively. The course is just in Turkish and there wasn't any GIT repository (other languages are not available, so that I have decided to put everthing I did in English and make it public). The lambda functions (node_modules , index, package-lock.json files) were in the source section, I got them and pushed into my repository.
 
-Steps and details with scripts can be seen in executionflow.txt file
+Steps and details with scripts can be seen in Execution Flow.txt file
 
 
 Building a PHP based web application with high availability and fault tolerance by using AWS services:
