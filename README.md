@@ -1,7 +1,9 @@
 To learn AWS cloud in detail I had several online courses. One of these courses was the following one:
 https://www.udemy.com/share/101Jp83@_dmQvnRXF9dlkK09-1R1CcDahpn3pvDZDXsATaQ_BAbjcyVVmXE3Be0u1OMHr-sA-Q==/
 
-Capstone project was really complex and it was giving the full picture of how to use different services effectively. The course is just in Turkish and there wasn't any GIT repository (other languages are not available, so that I have decided to put everthing I did in English and make it public). The lambda functions (node_modules , index, package-lock.json files) were in the source section, I got them and pushed into my repository.
+Capstone project was really complex and it was giving the full picture of how to use different services effectively. There isn't any GIT repository to get the files. So that I created this one with my edits.
+
+The course is just in Turkish (other languages are not available, so that I have decided to put everthing I did in English and make it public). The lambda functions (node_modules , index, package-lock.json files) were in the source section of the course, I got them and pushed into my repository.
 
 Steps and details with scripts can be seen in Execution Flow.txt file
 
