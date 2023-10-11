@@ -1,0 +1,10 @@
+This file has been created and pushed to the repo for testing the following:
+
+creating a file with touch command
+edit the file with notepad command
+git status (no files yet committed)
+git add . (to see the new file)
+git commit -m "terminaluse file has been added"
+git remote add origin https://github
+git remote -v
+git push -u origin master
